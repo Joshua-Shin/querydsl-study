@@ -1,9 +1,5 @@
 # querydsl-study
 
-### Querydsl 소개
-#### 소개
-
-
 ### 프로젝트 환경설정
 #### 프로젝트 생성
 #### Querydsl 설정과 검증
