@@ -1,11 +1,33 @@
 # querydsl-study
 
 ### 프로젝트 환경설정
-#### 프로젝트 생성
 #### Querydsl 설정과 검증
-#### 라이브러리 살펴보기
-#### H2 데이터베이스 설치
-#### 스프링 부트 설정 - JPA,DB
+- 설정이 되게 좀 까다롭네
+- build.gradle에 설정 추가
+  - plugins에 추가 id "com.ewerk.gradle.plugins.querydsl" version "1.0.10"
+  - dependencies에 추가 implementation 'com.querydsl:querydsl-jpa'
+  - 정확히는 모르겠는데, 컴파일 해서 Qtype 파일을 생성하는 경로를 잡아주는듯
+    ```
+    def querydslDir = "$buildDir/generated/querydsl"
+    querydsl {
+        jpa = true
+        querydslSourcesDir = querydslDir
+    }
+    sourceSets {
+        main.java.srcDir querydslDir
+    }
+    configurations {
+        querydsl.extendsFrom compileClasspath
+    }
+    compileQuerydsl {
+        options.annotationProcessorPath = configurations.querydsl
+    }
+    ```
+- Qtype 파일 생성을 위한 컴파일
+  - Gradle Tasks build clean
+  - Gradle Tasks other compileQuerydsl
+  - build generated querydsl..에 Q파일 생성되었나 확인. 
+  - 어떤 원리인지는 모르겠으나, java에서 entity 폴더에 만들어둔 엔티티객체가 실제로 Q타입으로 변환된 clsss 파일이 생성되네.
 
 
 ### 예제 도메인 모델
