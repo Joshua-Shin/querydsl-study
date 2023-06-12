@@ -27,17 +27,57 @@
   - Gradle Tasks build clean
   - Gradle Tasks other compileQuerydsl
   - build generated querydsl..에 Q파일 생성되었나 확인. 
-  - 어떤 원리인지는 모르겠으나, java에서 entity 폴더에 만들어둔 엔티티객체가 실제로 Q타입으로 변환된 clsss 파일이 생성되네.
+  - 어떤 원리인지는 모르겠으나, java에서 entity 폴더에 만들어둔 엔티티객체가 실제로 Q타입으로 변환된 clsss 파일이 생성되네. @Entity 애노테이션 달아준 클래스를 기준으로 만들어주는건가.
 
 
 ### 예제 도메인 모델
 #### 예제 도메인 모델과 동작확인
+- 테스트코드에서 실행시키면 자동 롤백되잖아. 그거 막을때 @Rollback(false) 했었는데 @Commit 이것도 동일한 기능임.
 
 
 ### 기본 문법
 #### 시작 - JPQL vs Querydsl
+- JPQL
+  ```
+  String qlString =
+          "select m from Member m " +
+          "where m.username = :username";
+  Member findMember = em.createQuery(qlString, Member.class)
+          .setParameter("username", "member1")
+          .getSingleResult();
+  ```
+- Querydsl
+  ```
+  JPAQueryFactory queryFactory = new JPAQueryFactory(em); // 얘는 필드로 빼도 됨
+  QMember m = new QMember("m");
+  
+  Member findMember = queryFactory
+              .select(m)
+              .from(m)
+              .where(m.username.eq("member1"))//파라미터 바인딩 처리
+              .fetchOne();
+  ```
 #### 기본 Q-Type 활용
+- QMember m = new QMember("m"); "m" 이부분이 테이블의 별칭 개념
+- 셀프 조인 하는 경우가 아니라면 여기서는 별칭을 뭐 따로 줄 필요 없고
+- 때문에, QMember qMember = QMember.member; 이걸로 사용.
+- 여기에 static import 까지 하면, 그냥 member로 사용가능
+- 최종 형태
+  ```
+  Member findMember = queryFactory
+                .select(member)
+                .from(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+  ```
+- 사실상 QueryDsl은 jpql의 빌더 역할.
+- jpql 어떻게 나가는지도 확인하고 싶으면 설정 추가
+  - spring.jpa.properties.hibernate.use_sql_comments: true
+
 #### 검색 조건 쿼리
+- 뭐 이걸 가능한 문법별로 다 기록할 필요는 없을것 같고, 그냥 . 찍으면 가능한 메소드들 쭉 나오니까.
+- sql문을 먼저 떠올리고, 이런거 있지 않을까 싶으면 대충 거의 다 있는듯.
+
 #### 결과 조회
 #### 정렬
 #### 페이징
