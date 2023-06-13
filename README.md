@@ -57,6 +57,7 @@
               .where(m.username.eq("member1"))//파라미터 바인딩 처리
               .fetchOne();
   ```
+
 #### 기본 Q-Type 활용
 - QMember m = new QMember("m"); "m" 이부분이 테이블의 별칭 개념
 - 셀프 조인 하는 경우가 아니라면 여기서는 별칭을 뭐 따로 줄 필요 없고
@@ -79,16 +80,92 @@
 - sql문을 먼저 떠올리고, 이런거 있지 않을까 싶으면 대충 거의 다 있는듯.
 
 #### 결과 조회
-#### 정렬
-#### 페이징
-#### 집합
-#### 조인 - 기본 조인
-#### 조인 - on절
-#### 조인 - 페치 조인
-#### 서브 쿼리
-#### Case 문
-#### 상수, 문자 더하기
+- fetch() : 리스트 조회, 데이터 없으면 빈 리스트 반환
+- fetchOne() : 단 건 조회
+  - 결과가 없으면 : null
+  - 결과가 둘 이상이면 : com.querydsl.core.NonUniqueResultException
+- fetchFirst() : limit(1).fetchOne()
+- fetchResults() : 페이징 정보 포함, total count 쿼리 추가 실행
+  - Spring Data JPA에서도 나온거긴 한데, count 쿼리가 단독으로 사용되면 조인을 하지 않아도 되는 상황에서도 이런경우 조인을 하게 될 수도 있어.
+  - 결과에는 당연히 문제가 없지만, 복잡한 쿼리라면 성능상 이점을 위해서 count 쿼리를 단독으로 쓰는게 나음
+- fetchCount() : count 쿼리로 변경해서 count 수 조회
 
+#### 정렬
+- 생략
+#### 페이징
+- 생략
+#### 집합
+- 생략
+
+#### 조인 - 기본 조인
+- join(조인 대상, 별칭으로 사용할 Q타입)
+```
+List<Member> result = queryFactory
+              .selectFrom(member)
+              .join(member.team, team)
+              .where(team.name.eq("teamA"))
+              .fetch();
+```
+- 원래 기본 sql 문법은 "select * from member m join team t on m.id = t.id" 이거나 "select * from member m, team t where m.id = t.id" 이런식으로다가
+- 어떤 조건을 가지고 조인을 걸어줄것인지 따로 명시하는데
+- 여기서는 연관관계가 서로 걸려있는것이기에 조인 대상만 member.team 으로 해주면 pk fk id 잘 찾아서 조인 해줌.
+- JPA 기본 강의에서 JPQL 파트 보면 얘도 이런식으로 조인하는걸 알 수 있음. 만약 id값을 기준으로 조인하고 싶지 않다면,
+- .from(member).join(team).on(조인조건) 으로 하면됨
+
+#### 조인 - on절
+- join할때 on 절은 join 할 대상을 필터링 하는 느낌이잖아.
+- 근데 이게 leftJoin이나 rightJoin에서는 의미가 있지만
+- 사실 innerJoin 에서는 QueryDsl 문법상 어차피 join() 매개변수로 member.team가 들어가면 id를 기준으로 조인할지 알려주는것이기에
+- 굳이 on절에 필터링 조건을 걸 필요 없고 그냥 where절에 쓰는게 낫다. 물론 outerJoin의 결과를 원할경우에는 where로는 해결이 불가하니 on절 따로 써줘야지
+- 테스트코드 extracting
+  - 만약 Member List에서 해당 Member들의 이름을 테스트하려면?
+  ```
+  List<String> names = new ArrayList<>();
+  for (Member member : members) {
+      names.add(member.getName());
+  }
+  assertThat(names).containsOnly("dexter", "james", "park", "lee");
+  ```
+  - 엄청 번거로움. 이때 사용하는게 extracting
+  ``` 
+  assertThat(members)
+          .extracting("name")
+          .containsOnly("dexter", "james", "park", "lee");
+  ```
+  - 리스트인 members에서 member 객체들마다 name 필드를 추출해서 비교해줌.
+  - containsOnly : 순서, 중복을 무시하는 대신 원소값과 갯수가 정확히 일치
+  - containsExactly: 순서를 포함해서 정확히 일치
+
+#### 조인 - 페치 조인
+- .join(member.team, team).fetchJoin()
+
+#### 서브 쿼리
+```
+QMember memberSub = new QMember("memberSub");
+      List<Member> result = queryFactory
+              .selectFrom(member)
+              .where(member.age.eq(
+                      JPAExpressions
+                              .select(memberSub.age.max())
+                              .from(memberSub)
+              ))
+              .fetch();
+```
+- 구별되는 별칭이 필요하기에 첫줄에 저렇게 따로 별칭 명시해서 QType 생성함.
+- JPAExpressions 얘는 static import 가능
+- jpql 배울때도 언급한거지만 from절에 서브쿼리 지원 안함.
+- 해결방법
+  - 조인으로 푼다
+  - 쿼리를 나눈다
+  - 정 한방 쿼리로 나타내고 싶다면 그때는 nativeSQL 쓴다.
+
+#### Case 문
+- 물론 case 문 다 있는데, 쓸수도 있는데.
+- db에서는 로우 데이터를 최소한의 필터링하고 그룹핑해서 가져오는 역할만 하고,
+- 값이 a면 b로 바꾸고 뭐 이런 전환하고 바꾸고 보여주는건 데이터 가져와서 애플리케이션에서 혹은 프래젠테이션 계층에서 진행하는게 나음.
+
+#### 상수, 문자 더하기
+- .stringValue() : 문자가 아닌 타입을 문자로 바꿔줌. int도 그렇지만 enum 타입들한테 많이 사용함
 
 ### 중급 문법
 #### 프로젝션과 결과 반환 - 기본
