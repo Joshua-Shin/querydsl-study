@@ -78,6 +78,10 @@
 #### 검색 조건 쿼리
 - 뭐 이걸 가능한 문법별로 다 기록할 필요는 없을것 같고, 그냥 . 찍으면 가능한 메소드들 쭉 나오니까.
 - sql문을 먼저 떠올리고, 이런거 있지 않을까 싶으면 대충 거의 다 있는듯.
+- member.age.goe(30) // age >= 30 // greater than or equal
+- member.age.gt(30) // age > 30 // greater than
+- member.age.loe(30) // age <= 30 // less than or equal
+- member.age.lt(30) // age < 30 // less than
 
 #### 결과 조회
 - fetch() : 리스트 조회, 데이터 없으면 빈 리스트 반환
@@ -169,13 +173,70 @@ QMember memberSub = new QMember("memberSub");
 
 ### 중급 문법
 #### 프로젝션과 결과 반환 - 기본
-#### 프로젝션과 결과 반환 - DTO 조회
-#### 프로젝션과 결과 반환 - @QueryProjection
-#### 동적 쿼리 - BooleanBuilder 사용
-#### 동적 쿼리 - Where 다중 파라미터 사용
-#### 수정, 삭제 벌크 연산
-#### SQL function 호출하기
+- select 절에 여러개의 매개변수가 있을 경우 List\<Tuple>로 반환됨.
+- Tuple은 queryDsl 종속적인 객체라 되도록 repository 안에서 만 사용하고 밖으로 나갈때는 dto로 변환해서 데이터를 보내는게 좋음.
+- tuple.get(member.username);
 
+#### 프로젝션과 결과 반환 - DTO 조회, @QueryProjection
+- 3가지 방식이 있어. 파라미터방식(setter), 필드방식, 생성자방식
+- 그리고 생성자 방식은 @QueryProjection을 활용하는 방식도 추가적으로 더 있음
+- 파라미터방식과 필드 방식은 dto 객체의 필드명이 동일해야하고(별칭으로 바꿔줄 수 있음), 컴파일단계에서 오류를 잡아주지 않고 실행할때 오류를 잡아줌.
+- 가장 실용적인 방식은 @QueryProjection 방식인데, DTO도 Qtype을 생성해야되고, DTO가 service계층, controller계층까지 이동을 하는애인데, 얘를 querydsl에 의존적이게 만들게 됨으로서 좀 깔끔하지 못하긴 하지.
+- 생성자 방식 정도가 괜찮지 않을까
+  ```
+  List<MemberDto> result = queryFactory
+          .select(Projections.constructor(MemberDto.class,
+                  member.username,
+                  member.age))
+          .from(member)
+          .fetch();
+  }
+  ```
+  
+#### 동적 쿼리 - BooleanBuilder 사용
+- 생략
+
+#### 동적 쿼리 - Where 다중 파라미터 사용
+- 동적 쿼리가 이래서 필요하구나. 검색 조건을 입력할때 어떤옵션은 입력 안할 수도 어떤건 입력을 할 수 있는 상황에서,
+- 이걸 만약에 jpql로 만들겠다 하면 너무 끔찍하네.
+```
+private List<Member> searchMember2(String usernameCond, Integer ageCond) {
+    return queryFactory
+            .selectFrom(member)
+            .where(usernameEq(usernameCond), ageEq(ageCond))
+            .fetch();
+}
+
+private BooleanExpression usernameEq(String usernameCond) {
+    return usernameCond != null ? member.username.eq(usernameCond) : null;
+}
+private BooleanExpression ageEq(Integer ageCond) {
+    return ageCond != null ? member.age.eq(ageCond) : null;
+}
+```
+- where 조건에 null 값은 무시된다.
+- 메서드를 다른 쿼리에서도 재활용 할 수 있다.
+- 쿼리 자체의 가독성이 높아진다.
+- 메소드로 뺄 수 있으니까, 여러가지로 조합도 가능
+#### 수정, 삭제 벌크 연산
+- 수정
+```
+long count = queryFactory
+          .update(member)
+          .set(member.username, "비회원")
+          .where(member.age.lt(28))
+          .execute();
+```
+- 삭제
+```
+long count = queryFactory
+            .delete(member)
+            .where(member.age.gt(18))
+            .execute();
+```
+
+#### SQL function 호출하기
+- 생략
 
 ### 실무 활용 - 순수 JPA와 Querydsl
 #### 순수 JPA 리포지토리와 Querydsl
