@@ -286,9 +286,17 @@ private BooleanExpression teamNameEq(String teamName) {
   - 이렇게 설정을 잡아놓으면 @Profile("local") 이라 선언해놓은 클래스의 스프링 빈이 등록 되고, @Profile("test") 라 선언된 클래스는 빈 등록이 안됨.
   - 이 기능을 사용하여, test에 있는 application.yml에는 active: test 라 명시하면, 실제 애플리케이션을 돌릴떄와 테스트를 돌릴때 다른 빈을 등록하고 안하고를 제어할 수 있어.
   - 사실 내가 원하는건 db 경로를 다르게 주고, 외부환경설정을 주입하고 이런것들에 대해 자세히 알고 싶은건데 이게 "스프링 부트 - 핵심 원리와 활용" 에 나오네..
+
+
 ### 실무 활용 - 스프링 데이터 JPA와 Querydsl
 #### 스프링 데이터 JPA 리포지토리로 변경
+- 생략
 #### 사용자 정의 리포지토리
+- 사용자 정의 리포지토리 구성
+  - <img width="576" alt="스크린샷 2023-06-15 오후 6 14 42" src="https://github.com/Joshua-Shin/querydsl-study/assets/93418349/b6def40a-9b54-4a81-a512-df855ea6eebf">
+  - MemberRepositoryCustom 인터페이스에는 메소드 선언만 해놓고, 걔를 구현한 MemberRepositoryImpl 클래스에 Querydsl을 사용하여 오버라이딩 메소드를 정의 하여 사용.
+  - 사실상 그냥 메소드명으로 쿼리 만들어주는건 spring data jpa로 만들고, 나머지 jpql문을 작성해야될것 같은 조금 복잡한것들은 querydsl로 만드는 느낌이네.
+
 #### 스프링 데이터 페이징 활용1 - Querydsl 페이징 연동
 #### 스프링 데이터 페이징 활용2 - CountQuery 최적화
 #### 스프링 데이터 페이징 활용3 - 컨트롤러 개발
