@@ -182,42 +182,14 @@ QMember memberSub = new QMember("memberSub");
 - 그리고 생성자 방식은 @QueryProjection을 활용하는 방식도 추가적으로 더 있음
 - 파라미터방식과 필드 방식은 dto 객체의 필드명이 동일해야하고(별칭으로 바꿔줄 수 있음), 컴파일단계에서 오류를 잡아주지 않고 실행할때 오류를 잡아줌.
 - 가장 실용적인 방식은 @QueryProjection 방식인데, DTO도 Qtype을 생성해야되고, DTO가 service계층, controller계층까지 이동을 하는애인데, 얘를 querydsl에 의존적이게 만들게 됨으로서 좀 깔끔하지 못하긴 하지.
-- 생성자 방식 정도가 괜찮지 않을까
-  ```
-  List<MemberDto> result = queryFactory
-          .select(Projections.constructor(MemberDto.class,
-                  member.username,
-                  member.age))
-          .from(member)
-          .fetch();
-  }
-  ```
-  
+- 근데 실무에서는 그냥 @QueryProjection 방식 쓰는듯. DTO 객체에 필드들을 다 담은 생성자를 만들어주고 해당 생성자 메소드 위에 @QueryProjection 선언함
+
 #### 동적 쿼리 - BooleanBuilder 사용
 - 생략
 
 #### 동적 쿼리 - Where 다중 파라미터 사용
-- 동적 쿼리가 이래서 필요하구나. 검색 조건을 입력할때 어떤옵션은 입력 안할 수도 어떤건 입력을 할 수 있는 상황에서,
-- 이걸 만약에 jpql로 만들겠다 하면 너무 끔찍하네.
-```
-private List<Member> searchMember2(String usernameCond, Integer ageCond) {
-    return queryFactory
-            .selectFrom(member)
-            .where(usernameEq(usernameCond), ageEq(ageCond))
-            .fetch();
-}
-
-private BooleanExpression usernameEq(String usernameCond) {
-    return usernameCond != null ? member.username.eq(usernameCond) : null;
-}
-private BooleanExpression ageEq(Integer ageCond) {
-    return ageCond != null ? member.age.eq(ageCond) : null;
-}
-```
-- where 조건에 null 값은 무시된다.
-- 메서드를 다른 쿼리에서도 재활용 할 수 있다.
-- 쿼리 자체의 가독성이 높아진다.
-- 메소드로 뺄 수 있으니까, 여러가지로 조합도 가능
+- 생략
+  
 #### 수정, 삭제 벌크 연산
 - 수정
 ```
@@ -238,13 +210,82 @@ long count = queryFactory
 #### SQL function 호출하기
 - 생략
 
+
 ### 실무 활용 - 순수 JPA와 Querydsl
 #### 순수 JPA 리포지토리와 Querydsl
+- JPAQueryFactory queryFactory 주입 방법1
+  -  리포지토리 선언된 클래스에서.
+  ```
+  private final EntityManager em;
+  private final JPAQueryFactory queryFactory;
+  public MemberJpaRepository(EntityManager em) {
+      this.em = em;
+      this.queryFactory = new JPAQueryFactory(em);
+  }
+  ```
+- JPAQueryFactory queryFactory 주입 방법2
+  - 빈으로 등록해놓고, 리포지토리 선언된 클래스에서 @RequiredConstructor
+  ```
+  @Bean
+  JPAQueryFactory jpaQueryFactory(EntityManager em) {
+      return new JPAQueryFactory(em);
+  }
+  ```
+- 동시성 문제 : 동시성 문제는 걱정하지 않아도 된다. 왜냐하면 여기서 스프링이 주입해주는 엔티티 매니저는 실제 동 작 시점에 진짜 엔티티 매니저를 찾아주는 프록시용 가짜 엔티티 매니저이다. 이 가짜 엔티티 매니저는 실제 사용 시점에 트랜잭션 단위로 실제 엔티티 매니저(영속성 컨텍스트)를 할당해준다.
+
 #### 동적 쿼리와 성능 최적화 조회 - Builder 사용
+- 생략
+
 #### 동적 쿼리와 성능 최적화 조회 - Where절 파라미터 사용
+- where 조건에 null 값은 무시된다.
+- 메서드를 다른 쿼리에서도 재활용 할 수 있다.
+- 쿼리 자체의 가독성이 높아진다.
+- 메소드로 뺄 수 있으니까, 여러가지로 조합도 가능
+- 동적 쿼리 & Where절 파라미터 사용 & @QueryProjection 방식을 사용한 DTO로 조회의 예시. 이게 핵심!
+```
+public List<MemberTeamDto> search(MemberSearchCondition condition) {
+      return queryFactory
+              .select(new QMemberTeamDto(
+                      member.id,
+                      member.username,
+                      member.age,
+                      team.id,
+                      team.name))
+              .from(member)
+              .leftJoin(member.team, team)
+              .where(usernameEq(condition.getUsername()),
+                      teamNameEq(condition.getTeamName()),
+                      ageGoe(condition.getAgeGoe()),
+                      ageLoe(condition.getAgeLoe()))
+              .fetch();
+}
+private BooleanExpression usernameEq(String username) {
+    return isEmpty(username) ? null : member.username.eq(username);
+}
+private BooleanExpression teamNameEq(String teamName) {
+    return isEmpty(teamName) ? null : team.name.eq(teamName);
+}
+   private BooleanExpression ageGoe(Integer ageGoe) {
+      return ageGoe == null ? null : member.age.goe(ageGoe);
+}
+  private BooleanExpression ageLoe(Integer ageLoe) {
+      return ageLoe == null ? null : member.age.loe(ageLoe);
+}
+```
 #### 조회 API 컨트롤러 개발
-
-
+- @PostConstruct 를 통해서 샘플 데이터들을 db에 저장할때, @Transactional을 같은 위치에 선언할 수 없어서,
+- MemberServiceInit static 클래스를 내부에 정의한다음에 memberServiceInit.init(); 을 호출해서 init() 메소드에다가 @Transcational를 선언.
+- 내 프로젝트에서는 고려 안했던게 나는 em.persist()를 바로 호출하지 않고 그냥 @Transactional 선언되어있는 서비스계층의 join()을 호출했음
+- profile을 나누기
+  - application.yml
+  ```
+  spring:
+    profiles:
+      active: local
+  ```
+  - 이렇게 설정을 잡아놓으면 @Profile("local") 이라 선언해놓은 클래스의 스프링 빈이 등록 되고, @Profile("test") 라 선언된 클래스는 빈 등록이 안됨.
+  - 이 기능을 사용하여, test에 있는 application.yml에는 active: test 라 명시하면, 실제 애플리케이션을 돌릴떄와 테스트를 돌릴때 다른 빈을 등록하고 안하고를 제어할 수 있어.
+  - 사실 내가 원하는건 db 경로를 다르게 주고, 외부환경설정을 주입하고 이런것들에 대해 자세히 알고 싶은건데 이게 "스프링 부트 - 핵심 원리와 활용" 에 나오네..
 ### 실무 활용 - 스프링 데이터 JPA와 Querydsl
 #### 스프링 데이터 JPA 리포지토리로 변경
 #### 사용자 정의 리포지토리
