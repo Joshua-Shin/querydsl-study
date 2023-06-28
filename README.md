@@ -265,11 +265,11 @@ private BooleanExpression usernameEq(String username) {
 private BooleanExpression teamNameEq(String teamName) {
     return isEmpty(teamName) ? null : team.name.eq(teamName);
 }
-   private BooleanExpression ageGoe(Integer ageGoe) {
-      return ageGoe == null ? null : member.age.goe(ageGoe);
+private BooleanExpression ageGoe(Integer ageGoe) {
+    return ageGoe == null ? null : member.age.goe(ageGoe);
 }
-  private BooleanExpression ageLoe(Integer ageLoe) {
-      return ageLoe == null ? null : member.age.loe(ageLoe);
+private BooleanExpression ageLoe(Integer ageLoe) {
+    return ageLoe == null ? null : member.age.loe(ageLoe);
 }
 ```
 #### 조회 API 컨트롤러 개발
