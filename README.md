@@ -4,10 +4,15 @@
 #### Querydsl 설정과 검증
 - 설정이 되게 좀 까다롭네
 - build.gradle에 설정 추가
-  - plugins에 추가 id "com.ewerk.gradle.plugins.querydsl" version "1.0.10"
-  - dependencies에 추가 implementation 'com.querydsl:querydsl-jpa'
   - 정확히는 모르겠는데, 컴파일 해서 Qtype 파일을 생성하는 경로를 잡아주는듯
     ```
+    plugins {
+        id "com.ewerk.gradle.plugins.querydsl" version "1.0.10"
+    }
+    
+    implementation "com.querydsl:querydsl-jpa:${queryDslVersion}"             
+    annotationProcessor "com.querydsl:querydsl-apt:${queryDslVersion}"
+
     def querydslDir = "$buildDir/generated/querydsl"
     querydsl {
         jpa = true
@@ -89,10 +94,12 @@
   - 결과가 없으면 : null
   - 결과가 둘 이상이면 : com.querydsl.core.NonUniqueResultException
 - fetchFirst() : limit(1).fetchOne()
-- fetchResults() : 페이징 정보 포함, total count 쿼리 추가 실행
+- fetchResults() : 향후 미지원!!
+  - 페이징 정보 포함, total count 쿼리 추가 실행
   - Spring Data JPA에서도 나온거긴 한데, count 쿼리가 단독으로 사용되면 조인을 하지 않아도 되는 상황에서도 이런경우 조인을 하게 될 수도 있어.
   - 결과에는 당연히 문제가 없지만, 복잡한 쿼리라면 성능상 이점을 위해서 count 쿼리를 단독으로 쓰는게 나음
-- fetchCount() : count 쿼리로 변경해서 count 수 조회
+- fetchCount() : 향후 미지원!!
+  - count 쿼리로 변경해서 count 수 조회
 
 #### 정렬
 - 생략
@@ -298,15 +305,62 @@ private BooleanExpression ageLoe(Integer ageLoe) {
   - 사실상 그냥 메소드명으로 쿼리 만들어주는건 spring data jpa로 만들고, 나머지 jpql문을 작성해야될것 같은 조금 복잡한것들은 querydsl로 만드는 느낌이네.
 
 #### 스프링 데이터 페이징 활용1 - Querydsl 페이징 연동
-#### 스프링 데이터 페이징 활용2 - CountQuery 최적화
-#### 스프링 데이터 페이징 활용3 - 컨트롤러 개발
+```
+public Page<MemberTeamDto> searchPageComplex(MemberSearchCondition condition, Pageable pageable) {
+    List<MemberTeamDto> content = queryFactory
+            .select(new QMemberTeamDto(
+                    member.id.as("memberId"),
+                    member.username,
+                    member.age,
+                    team.id.as("teamId"),
+                    team.name.as("teamName")))
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(
+                    usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe())
+            )
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
 
+     JPAQuery<Long> countQuery = queryFactory
+            .select(member.count())
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(
+                    usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe())
+            );
+
+    return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
+}
+```
+- fetchResults()와 fetchCount()의 경우 향후 미지원 예정이라 사용안함
+- 마지막 리턴하는 줄은 마지막 페이지라든가, 요청한 사이즈보다 가져올 데이터의 사이즈가 적을 경우 카운트 쿼리를 따로 날리지 않음.
+
+#### 스프링 데이터 페이징 활용2 - CountQuery 최적화
+- 생략
+
+#### 스프링 데이터 페이징 활용3 - 컨트롤러 개발
+- 생략
 
 ### 스프링 데이터 JPA가 제공하는 Querydsl 기능
 #### 인터페이스 지원 - QuerydslPredicateExecutor
+- 복잡한 실무에서 쓰기에 한계가 있음
+
 #### Querydsl Web 지원
+- 복잡한 실무에서 쓰기에 한계가 있음
+
 #### 리포지토리 지원 - QuerydslRepositorySupport
+- 생략
+
 #### Querydsl 지원 클래스 직접 만들기
+- 생략
 
 
 
